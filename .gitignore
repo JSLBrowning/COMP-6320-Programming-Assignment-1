@@ -50,3 +50,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Compiled programs
+client11b
+client12
+server11
+server12

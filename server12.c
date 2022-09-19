@@ -1,7 +1,8 @@
-/*                                                                                                                                                                                                          
-** server12.c -- TCP Server                                                                                                                                                                                 
+/*
+** server12.c -- TCP Server
 */
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -9,19 +10,22 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #define PORT 10020
 #define MAX_CLIENTS 10
 #define SEND_BUFFER_SIZE 160
 #define RECV_BUFFER_SIZE 100
 
-struct recv_data {
+struct recv_data
+{
   uint32_t a;
   uint32_t b;
   char operation;
 } __attribute__((packed));
 
-struct send_data {
+struct send_data
+{
   uint32_t a;
   uint32_t b;
   uint32_t c;
@@ -29,49 +33,55 @@ struct send_data {
   char is_valid;
 } __attribute__((packed));
 
-void * ClientHandler(void *);
+void *ClientHandler(void *);
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
   int sock, client_sock, c;
   struct sockaddr_in server, client;
 
-  // Create the socket                                                                                                                                                                                      
+  // Create the socket
   sock = socket(AF_INET, SOCK_STREAM, 0);
-  if (sock == -1) {
+  if (sock == -1)
+  {
     printf("Error: Could not create the socket...\n");
     return -1;
   }
 
-  // Prepare the socket                                                                                                                                                                                     
+  // Prepare the socket
   server.sin_family = AF_INET;
   server.sin_addr.s_addr = htonl(INADDR_ANY);
   server.sin_port = htons(PORT);
 
-  // Bind the socket                                                                                                                                                                                        
-  if (bind(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
+  // Bind the socket
+  if (bind(sock, (struct sockaddr *)&server, sizeof(server)) < 0)
+  {
     printf("Error: The bind failed...\n");
     return -1;
   }
 
-  // Listen                                                                                                                                                                                                 
+  // Listen
   listen(sock, MAX_CLIENTS);
-  printf("%s\n","The server is running on port: ", PORT);
+  printf("The server is running on port: %d\n", PORT);
 
   // Accept incoming connections
-   for (; ;) {
+  for (;;)
+  {
     pthread_t thread_id;
 
     c = sizeof(struct sockaddr_in);
-    client_sock = accept(sock, (struct sockaddr *)&client, (socklen_t*)&c);
-    printf("%s\n","A new client has connected!");
+    client_sock = accept(sock, (struct sockaddr *)&client, (socklen_t *)&c);
+    printf("%s\n", "A new client has connected!");
 
-    // Assign client to their own thread                                                                                                                                                                    
-    if (pthread_create(&thread_id, NULL, ClientHandler, (void*)&client_sock) < 0) {
+    // Assign client to their own thread
+    if (pthread_create(&thread_id, NULL, ClientHandler, (void *)&client_sock) < 0)
+    {
       printf("Error: Could not create thread...\n");
     }
   }
 
-  if (client_sock < 0) {
+  if (client_sock < 0)
+  {
     printf("Error: Failed to accept client\n");
   }
 
@@ -79,54 +89,67 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-/*                                                                                                                                                                                                          
-** Handles the connection for each client that connects                                                                                                                                                     
+/*
+** Handles the connection for each client that connects
 */
-void *ClientHandler(void *sock_desc) {
-  // Get the socket descriptor                                                                                                                                                                              
-  int sock = *(int*)sock_desc, read_size, bytes_sent;
+void *ClientHandler(void *sock_desc)
+{
+  // Get the socket descriptor
+  int sock = *(int *)sock_desc, read_size, bytes_sent;
   char *message, *eval;
   struct recv_data rd;
   struct send_data sd;
 
-  // Send client usage message                                                                                                                                                                              
-  while (read_size = recv(sock, &rd, sizeof(struct recv_data), 0) > 0) {
-    printf("Bytes received: %d\n", sizeof(rd));
-    // Default message validity to true                                                                                                                                                                     
+  // Send client usage message
+  while (read_size = recv(sock, &rd, sizeof(struct recv_data), 0) > 0)
+  {
+    printf("Bytes received: %ld\n", sizeof(rd));
+    // Default message validity to true
     sd.is_valid = '1';
-    // Do work with message                                                                                                                                                                                 
+    // Do work with message
     sd.a = rd.a;
     sd.operation = rd.operation;
     sd.b = rd.b;
 
-    switch(sd.operation) {
-    case '+': sd.c = sd.a + sd.b; break;
-      case '-': sd.c = sd.a - sd.b; break;
-      case '*': sd.c = sd.a * sd.b; break;
-      case '/':
-        if (sd.b == 0) {
-          sd.c = 0;
-          sd.is_valid = '2';
-        }
-        else {
-          sd.c = sd.a / sd.b;
-        }
-        break;
+    switch (sd.operation)
+    {
+    case '+':
+      sd.c = sd.a + sd.b;
+      break;
+    case '-':
+      sd.c = sd.a - sd.b;
+      break;
+    case '*':
+      sd.c = sd.a * sd.b;
+      break;
+    case '/':
+      if (sd.b == 0)
+      {
+        sd.c = 0;
+        sd.is_valid = '2';
+      }
+      else
+      {
+        sd.c = sd.a / sd.b;
+      }
+      break;
     default:
       sd.is_valid = '2';
       break;
     }
 
-    // Send client a message back                                                                                                                                                                           
+    // Send client a message back
     bytes_sent = send(sock, &sd, sizeof(sd), 0);
     printf("Bytes sent: %d\n", bytes_sent);
   }
 
-  // Client disconnected                                                                                                                                                                                    
-  if (read_size == 0) {
+  // Client disconnected
+  if (read_size == 0)
+  {
     printf("A client has disconnected...\n");
-
-  } else if (read_size == -1) {
+  }
+  else if (read_size == -1)
+  {
     printf("Error: recv failed...\n");
   }
 
