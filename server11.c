@@ -63,6 +63,7 @@ int main()
     }
     socklen_t len = 0;
 
+    printf("= SERVER11.C =================================\n");
     printf("Server listening on port %d.\n", PORT);
 
     // Loop to receive messages and echo them to client.
@@ -80,17 +81,18 @@ int main()
         }
         else
         {
-            printf("================================\n");
+            printf("==============================================\n");
 
             // Disassemble packet struct.
             disassemblePacket((struct packet *)buffer, messageReceived);
-            printf("Received message: %s", messageReceived);
+            printf("Received message: %s\n", messageReceived);
 
             // Send packet struct back.
             int n = sendto(sockfd, (struct packet *)buffer, MAXPACKET, MSG_CONFIRM,
                            (const struct sockaddr *)&cliaddr, clilen);
             printf("Echo sent.\n");
-            printf("================================\nWaiting for new messages...\n");
+            printf("==============================================\n");
+            printf("Waiting for new messages...\n");
         }
     }
 }
