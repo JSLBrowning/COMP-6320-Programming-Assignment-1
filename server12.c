@@ -44,8 +44,8 @@ int main(int argc, char **argv)
   sock = socket(AF_INET, SOCK_STREAM, 0);
   if (sock == -1)
   {
-    printf("Error: Could not create the socket...\n");
-    return -1;
+    perror("Failed to create socket. Exiting...\n");
+		exit(EXIT_FAILURE);
   }
 
   // Prepare the socket
@@ -56,13 +56,13 @@ int main(int argc, char **argv)
   // Bind the socket
   if (bind(sock, (struct sockaddr *)&server, sizeof(server)) < 0)
   {
-    printf("Error: The bind failed...\n");
-    return -1;
+    perror("Failed to bind socket. Exiting...\n");
+		exit(EXIT_FAILURE);
   }
 
   // Listen
   listen(sock, MAX_CLIENTS);
-  printf("The server is running on port: %d\n", PORT);
+  printf("Server is running on port %d.\n", PORT);
 
   // Accept incoming connections
   for (;;)
@@ -71,7 +71,7 @@ int main(int argc, char **argv)
 
     c = sizeof(struct sockaddr_in);
     client_sock = accept(sock, (struct sockaddr *)&client, (socklen_t *)&c);
-    printf("%s\n", "A new client has connected!");
+    printf("%s\n", "A new client has connected!\n");
 
     // Assign client to their own thread
     if (pthread_create(&thread_id, NULL, ClientHandler, (void *)&client_sock) < 0)
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 
   if (client_sock < 0)
   {
-    printf("Error: Failed to accept client\n");
+    printf("Error: Failed to accept client.\n");
   }
 
   close(sock);

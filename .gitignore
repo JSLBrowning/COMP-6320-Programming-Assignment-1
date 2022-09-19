@@ -53,6 +53,7 @@ dkms.conf
 
 # Compiled programs
 client11b
+client11c
 client12
 server11
 server12

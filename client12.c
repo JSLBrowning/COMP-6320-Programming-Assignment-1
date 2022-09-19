@@ -33,7 +33,7 @@ struct send_data
 int main(int argc, char *argv[])
 {
   int sock, send_bytes;
-  struct sockaddr_in server_addr;
+  struct sockaddr_in server_addr = {0};
   socklen_t addr_size;
   struct recv_data rd;
   struct send_data sd;
@@ -49,42 +49,50 @@ int main(int argc, char *argv[])
   // Attempt to create the socket
   sock = socket(AF_INET, SOCK_STREAM, 0);
 
-  // Configure server address struct
+  // Configure TCP socket
   server_addr.sin_family = AF_INET;
-  server_addr.sin_addr.s_addr = inet_addr(argv[1]);
   server_addr.sin_port = htons(PORT);
-  // Sets bits of padding field to 0
-  memset(server_addr.sin_zero, '\0', sizeof server_addr.sin_zero);
+  server_addr.sin_addr.s_addr = inet_addr(argv[1]);
+  memset(server_addr.sin_zero, '\0', sizeof(server_addr.sin_zero));
 
   // Connect the socket to the server
-  if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+  addr_size = sizeof(server_addr);
+  if (connect(sock, (struct sockaddr *)&server_addr, addr_size) < 0)
   {
     printf("Error: Could not connect to the server...\n");
     exit(-1);
   }
 
   // Send and receive input to the server
-  printf("%s\n", "Connected to server. Usage: <a><+, -, *, /><b>");
+  printf("Connected to server. Usage: <a><+, -, *, /><b>\n");
+  printf("Enter a query: ");
   while (fgets(send_buff, SEND_BUFFER_SIZE, stdin) != NULL)
   {
     // Extract data from user input
     sd.a = strtol(send_buff, &eval, 10);
-    while (isdigit(*eval)) eval++;
+    while (isdigit(*eval))
+      eval++;
     sd.operation = *eval++;
     sd.b = strtol(eval, &eval, 10);
 
-    printf("sending data to server. A: %d, B: %d, OP: %c\n", sd.a, sd.b, sd.operation);
+    printf("= CLIENT12 ===================================\n");
+    printf("Sending data to server.      A: %d, B: %d, Op: %c\n", sd.a, sd.b, sd.operation);
     send_bytes = send(sock, &sd, sizeof(sd), 0);
 
     // Wait to receive response from the server
     if (recv(sock, &rd, sizeof(struct recv_data), 0) == 0)
     {
-      printf("Error: The server terminated prematurely\n");
+      printf("----------------------------------------------\n");
+      printf("Error:      The server terminated prematurely.\n");
+      printf("==============================================\n\n");
       exit(-1);
     }
 
-    // Print result fromt the server
-    printf("> %d%c%d=%d : Is Valid? %c\n", rd.a, rd.operation, rd.b, rd.c, rd.is_valid);
+    // Print response from server.
+    printf("----------------------------------------------\n");
+    printf("Response: %d%c%d=%d\nIs valid? %c\n", rd.a, rd.operation, rd.b, rd.c, rd.is_valid);
+    printf("==============================================\n\n");
+    printf("Enter another query: ");
 
     // clear input buffer
     bzero(send_buff, SEND_BUFFER_SIZE);

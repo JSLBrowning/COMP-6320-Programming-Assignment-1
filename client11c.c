@@ -14,53 +14,39 @@
 
 struct packet
 {
-	uint32_t seqNum;
-	uint64_t transTime;
-	char message[MAXMSGLEN];
 	uint16_t msgLen;
+	uint32_t seqNum;
+	uint64_t sendTime64;
+	char message[MAXMSGLEN];
 };
 
-void assemblePacket(struct packet *packetStruct, uint32_t seqNum, char *message);
-void disassemblePacket(struct packet *packetStruct, char *message);
+void assemblePacket(struct packet *packetStruct, uint32_t seqNum, uint64_t sendTime64, char *message);
+void disassemblePacket(struct packet *packetStruct, uint64_t *sendTime64, char *message);
 
 int main(int argc, char *argv[])
 {
-	// Initialize send and receive timestamp variables.
-	struct timeval sendTime, recvTime;
-
-
-	// Initialize variables for message length (2 bytes), sequence number (4 bytes), and transmitted timestamp (8 bytes).
-	int msgLen = 0;
-	long int seqNum = 1;
-	long long int transTime;
-
-
-	// Initialize variable for assembled packet.
-	char packet[MAXPACKET];
-
-
 	// Check if server address is provided.
 	if (argc != 2)
 	{
-		printf("Usage: ./client <server hostname>\n");
+		printf("Usage: ./client11b <server hostname>\n");
 		printf("Please try again.\n");
 		exit(EXIT_FAILURE);
 	}
-	else if (argc == 2)
-	{
-		// Check if hostname is correct (just localhost for now).
-		if (strcmp(argv[1], "localhost") != 0)
-		{
-			printf("Usage: ./client <server hostname>\n");
-			printf("(Try 'localhost' instead -- we're only doing local loop here.)\n");
-			exit(EXIT_FAILURE);
-		}
-	}
 
+	// Initialize send and receive timestamp variables.
+	struct timeval sendTime, recvTime, startTime, currentTime;
+	uint64_t sendTime64 = 0;
+
+	// Initialize variables for message length (2 bytes), sequence number (4 bytes), and echoed message (up to 1,024 bytes).
+	int msgLen = 0;
+	long int seqNum = 1;
+	char messageReceived[MAXMSGLEN];
+
+	// Initialize variable for assembled packet.
+	struct packet sendPacket;
 
 	// Initialize input string variable.
 	char message[MAXMSGLEN];
-
 
 	// Create socket.
 	struct sockaddr_in servaddr = {0};
@@ -71,13 +57,10 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-
-	// Set server address.
+	// Set up socket.
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_port = htons(PORT);
-	// Copy hostname argument to servaddr.
 	inet_pton(AF_INET, argv[1], &servaddr.sin_addr);
-
 
 	// Fork process.
 	if (fork() == 0)
@@ -86,47 +69,63 @@ int main(int argc, char *argv[])
 		struct packet sendPacket;
 
 		// Send all integers from 1 to 10,000 to the server.
-		for (int i = 1; i <= 5000; i++)
+		for (int i = 1; i <= 10000; i++)
 		{
 			// Convert i (int) to message (char) using sprintf.
 			sprintf(message, "%d", i);
 
+			// Get sendTime.
+			gettimeofday(&sendTime, NULL);
+			// Convert sendTime to uint64_t.
+			sendTime64 = (uint64_t)sendTime.tv_sec * 1000000 + (uint64_t)sendTime.tv_usec;
+
 			// Assemble packet from string using assemblePacket function.
-			assemblePacket(&sendPacket, seqNum, message);
+			assemblePacket(&sendPacket, seqNum, sendTime64, message);
 
 			// Send message to server.
-			int len = sendto(sockfd, packet, MAXPACKET, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+			int len = sendto(sockfd, (const struct packet *)&sendPacket, sizeof(sendPacket), 0, (const struct sockaddr *)&servaddr, sizeof(servaddr));
 		}
 	}
 	else
 	{
+		// Set startTime
+		gettimeofday(&startTime, NULL);
+
 		// Declare variable to count number of messages received.
 		int numMsgs = 0;
 
 		// Declare array for up to 10,000 recvTimes (long long ints).
 		long long int recvTimes[10000];
 		// Declare array for up to 10,000 transTimes (long long ints).
-		long long int transTimes[10000];
+		long long int sendTimes[10000];
 		// Declare array for up to 10,000 time differences.
 		long long int timeDiffs[10000];
 
 		// Receive echos from server, process round trip times.
-		while(1)
+		while (1)
 		{
+			// If more than a second has passed since the start of the program, break.
+			gettimeofday(&currentTime, NULL);
+			if (currentTime.tv_sec - startTime.tv_sec > 1)
+			{
+				printf("No response for a while. Quitting...\n");
+				break;
+			}
+
 			char buffer[MAXMSGLEN] = {0};
 			int len;
 			int n = recvfrom(sockfd, (char *)buffer, MAXMSGLEN, MSG_WAITALL,
-				0, &len);
-			if(n == -1)
+							 0, &len);
+			if (n == -1)
 			{
 				perror("Failed to receive message. Try again...\n");
 			}
 			else
 			{
 				// Disassemble received packet.
-				disassemblePacket(buffer, &msgLen, &seqNum, &transTime, message);
-				// Put transTime in array.
-				transTimes[numMsgs] = transTime;
+				disassemblePacket((struct packet *)buffer, &sendTime64, messageReceived);
+				// Put sendTime in array.
+				sendTimes[numMsgs] = sendTime64;
 				// Get timestamp for message received.
 				gettimeofday(&recvTime, NULL);
 				// Convert recvTime to long long int.
@@ -134,18 +133,22 @@ int main(int argc, char *argv[])
 				// Put recvTime in array.
 				recvTimes[numMsgs] = recvTimeLL;
 				// Calculate time difference.
-				timeDiffs[numMsgs] = recvTimes[numMsgs] - transTimes[numMsgs];
+				timeDiffs[numMsgs] = recvTimes[numMsgs] - sendTimes[numMsgs];
 				// Increment number of messages received.
 				numMsgs++;
-			}
+				// Update startTime using gettimeofday.
+				gettimeofday(&startTime, NULL);
 
-			// Break out of while loop if more than one second passes without receiving a message.
-			if (numMsgs > 100)
-			{
-				if (recvTime.tv_sec - sendTime.tv_sec > 1)
+				// Calculate average round trip time.
+				double avgRTT = 0;
+				for (int i = 0; i < numMsgs; i++)
 				{
-					break;
+					avgRTT += timeDiffs[i];
 				}
+				avgRTT = avgRTT / numMsgs;
+				printf("Number of messages so far: %d\n", numMsgs);
+				// Print average round trip time.
+				printf("Average round trip time so far: %f microseconds\n", avgRTT);
 			}
 		}
 
@@ -164,36 +167,28 @@ int main(int argc, char *argv[])
 
 // Function to build packet w/ message length (2 bytes), sequence number (4 bytes),
 // transmitted timestamp (8 bytes), and string (up to 1,024 bytes).
-void assemblePacket(struct packet *packetStruct, uint32_t seqNum, char *message)
+void assemblePacket(struct packet *packetStruct, uint32_t seqNum, uint64_t sendTime64, char *message)
 {
 	// Assign sequence number to packet struct.
 	packetStruct->seqNum = seqNum;
 
 	// Assign transmitted timestamp to packet struct.
-	struct timeval transTime;
-	gettimeofday(&transTime, NULL);
-	packetStruct->transTime = (long long int)transTime.tv_sec * 1000000 + (long long int)transTime.tv_usec;
+	packetStruct->sendTime64 = sendTime64;
 
 	// Assign message to packet struct.
 	strcpy(packetStruct->message, message);
 
 	// Assign total message length to packet struct.
-	packetStruct->msgLen = sizeof(packetStruct->seqNum) + sizeof(packetStruct->transTime) + strlen(packetStruct->message);
+	packetStruct->msgLen = sizeof(packetStruct->seqNum) + sizeof(packetStruct->sendTime64) + strlen(packetStruct->message);
 }
 
 // Function to disassemble packet struct.
-void disassemblePacket(struct packet *packetStruct, char *messageReceived)
+void disassemblePacket(struct packet *packetStruct, uint64_t *sendTime64, char *messageReceived)
 {
-	// Get sequence number from packet struct.
-	uint32_t seqNum = packetStruct->seqNum;
-
 	// Get transmitted timestamp from packet struct.
-	uint64_t transTime = packetStruct->transTime;
+	*sendTime64 = packetStruct->sendTime64;
 
 	// Get message from packet struct.
 	// printf("Message received: %s", packetStruct->message);
 	strcpy(messageReceived, packetStruct->message);
-
-	// Get message length from packet struct.
-	uint16_t msgLen = packetStruct->msgLen;
 }

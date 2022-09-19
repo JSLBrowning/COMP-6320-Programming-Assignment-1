@@ -28,19 +28,9 @@ int main(int argc, char *argv[])
 	// Check if server address is provided.
 	if (argc != 2)
 	{
-		printf("Usage: ./client <server hostname>\n");
+		printf("Usage: ./client11b <server hostname>\n");
 		printf("Please try again.\n");
 		exit(EXIT_FAILURE);
-	}
-	else if (argc == 2)
-	{
-		// Check if hostname is correct (just localhost for now).
-		if (strcmp(argv[1], "localhost") != 0)
-		{
-			printf("Usage: ./client <server hostname>\n");
-			printf("(Try 'localhost' instead -- we're only doing local loop here.)\n");
-			exit(EXIT_FAILURE);
-		}
 	}
 
 	// Initialize send and receive timestamp variables.
@@ -116,7 +106,7 @@ int main(int argc, char *argv[])
 		{
 			printf("----------------------------------------------\n");
 			perror("Failed to receive echo.           Try again...\n");
-			printf("==============================================\n");
+			printf("==============================================\n\n");
 		}
 		else
 		{
@@ -134,7 +124,7 @@ int main(int argc, char *argv[])
 			long int rtt = recvTime64 - sendTime64;
 			// Print round trip time.
 			printf("Round trip time: %ld microseconds\n", rtt);
-			printf("==============================================\n");
+			printf("==============================================\n\n");
 		}
 	}
 }
