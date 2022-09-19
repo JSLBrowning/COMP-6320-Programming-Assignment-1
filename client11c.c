@@ -146,8 +146,9 @@ int main(int argc, char *argv[])
 				gettimeofday(&startTime, NULL);
 
 				// Calculate average round trip time.
+				int i = 0;
 				double avgRTT = 0;
-				for (int i = 0; i < numMsgs; i++)
+				for (i = 0; i < numMsgs; i++)
 				{
 					avgRTT += timeDiffs[i];
 				}
@@ -165,8 +166,9 @@ int main(int argc, char *argv[])
 		}
 
 		// Calculate average round trip time.
+		int i = 0;
 		double avgRTT = 0;
-		for (int i = 0; i < numMsgs; i++)
+		for (i = 0; i < numMsgs; i++)
 		{
 			avgRTT += timeDiffs[i];
 		}
