@@ -5,6 +5,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
@@ -65,11 +66,14 @@ int main(int argc, char *argv[])
 	// Fork process.
 	if (fork() == 0)
 	{
+		// Initialize counting variable.
+		int i = 0;
+
 		// Initialize variable for assembled packet.
 		struct packet sendPacket;
 
 		// Send all integers from 1 to 10,000 to the server.
-		for (int i = 1; i <= 10000; i++)
+		for (i = 1; i <= 10000; i++)
 		{
 			// Convert i (int) to message (char) using sprintf.
 			sprintf(message, "%d", i);
@@ -84,6 +88,8 @@ int main(int argc, char *argv[])
 
 			// Send message to server.
 			int len = sendto(sockfd, (const struct packet *)&sendPacket, sizeof(sendPacket), 0, (const struct sockaddr *)&servaddr, sizeof(servaddr));
+
+			nanosleep((const struct timespec[]){{0, 50000L}}, NULL);
 		}
 	}
 	else
@@ -149,6 +155,12 @@ int main(int argc, char *argv[])
 				printf("Number of messages so far: %d\n", numMsgs);
 				// Print average round trip time.
 				printf("Average round trip time so far: %f microseconds\n", avgRTT);
+			}
+
+			// If 10,000 messages have been received, break.
+			if (numMsgs == 10000)
+			{
+				break;
 			}
 		}
 
